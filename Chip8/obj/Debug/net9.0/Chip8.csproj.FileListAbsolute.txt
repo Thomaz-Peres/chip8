@@ -1,0 +1,14 @@
+/home/tomenos/dev/chip8/Chip8/bin/Debug/net9.0/Chip8
+/home/tomenos/dev/chip8/Chip8/bin/Debug/net9.0/Chip8.deps.json
+/home/tomenos/dev/chip8/Chip8/bin/Debug/net9.0/Chip8.runtimeconfig.json
+/home/tomenos/dev/chip8/Chip8/bin/Debug/net9.0/Chip8.dll
+/home/tomenos/dev/chip8/Chip8/bin/Debug/net9.0/Chip8.pdb
+/home/tomenos/dev/chip8/Chip8/obj/Debug/net9.0/Chip8.GeneratedMSBuildEditorConfig.editorconfig
+/home/tomenos/dev/chip8/Chip8/obj/Debug/net9.0/Chip8.AssemblyInfoInputs.cache
+/home/tomenos/dev/chip8/Chip8/obj/Debug/net9.0/Chip8.AssemblyInfo.cs
+/home/tomenos/dev/chip8/Chip8/obj/Debug/net9.0/Chip8.csproj.CoreCompileInputs.cache
+/home/tomenos/dev/chip8/Chip8/obj/Debug/net9.0/Chip8.dll
+/home/tomenos/dev/chip8/Chip8/obj/Debug/net9.0/refint/Chip8.dll
+/home/tomenos/dev/chip8/Chip8/obj/Debug/net9.0/Chip8.pdb
+/home/tomenos/dev/chip8/Chip8/obj/Debug/net9.0/Chip8.genruntimeconfig.cache
+/home/tomenos/dev/chip8/Chip8/obj/Debug/net9.0/ref/Chip8.dll

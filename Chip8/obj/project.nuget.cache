@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "/usQaFdSxhc=",
+  "success": true,
+  "projectFilePath": "/home/tomenos/dev/chip8/Chip8/Chip8.csproj",
+  "expectedPackageFiles": [
+    "/home/tomenos/.nuget/packages/sdl2.nuget/2.32.4/sdl2.nuget.2.32.4.nupkg.sha512",
+    "/home/tomenos/.nuget/packages/sdl2.nuget.redist/2.32.4/sdl2.nuget.redist.2.32.4.nupkg.sha512"
+  ],
+  "logs": []
+}
