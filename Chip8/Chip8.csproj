@@ -8,7 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="sdl2.nuget" Version="2.32.4" />
+	  <None Update="SDL3.dll">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <ProjectReference Include="..\..\vendored\SDL3-CS\SDL3\SDL3.Core.csproj" />
   </ItemGroup>
 
 </Project>
