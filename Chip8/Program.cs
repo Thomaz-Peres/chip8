@@ -6,7 +6,7 @@ unsafe
 {
     Sdl.SDL_Init(Sdl.SDL_InitFlags.SDL_INIT_VIDEO);
 
-    var window = Sdl.SDL_CreateWindow("CHIP-8 interpreter", 64 * 8, 32 * 8, Sdl.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
+    var window = Sdl.SDL_CreateWindow("CHIP-8 interpreter", 64 * 10, 32 * 10, Sdl.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
 
     var renderer = Sdl.SDL_CreateRenderer(window, null);
     Sdl.SDL_Texture texture = *Sdl.SDL_CreateTexture(renderer, Sdl.SDL_PixelFormat.SDL_PIXELFORMAT_RGBA8888, Sdl.SDL_TextureAccess.SDL_TEXTUREACCESS_TARGET, 64, 32);
@@ -19,9 +19,8 @@ unsafe
         return 1;
     }
 
-    float scale = 30;
-    float startX = 10;
-    float startY = 10;
+    float scale = 8;
+    float startY = 1;
 
     while (true)
     {
@@ -38,28 +37,33 @@ unsafe
 
         // Sdl.SDL_RenderPoint(renderer, 0x3F, 0x1F);
         byte[] zero = Fonts.Font[0];
-        byte[] one  = Fonts.Font[1];
+        byte[] one = Fonts.Font[1];
 
-        for (int row = 0; row < zero.Length; row++)
+        foreach (var key in Fonts.Font)
         {
-            byte rowData = zero[row];
-            for (int col = 0; col < 8; col++)
+            float startX = key.Key * (5 + 1); // character width + spacing
+            var item = key.Value;
+
+            for (int row = 0; row < item.Length; row++)
             {
-                Console.WriteLine(0b1000_0000 >> col);
-                if ((rowData & (0b1000_0000 >> col)) != 0)
+                byte rowData = item[row];
+                for (int col = 0; col < 8; col++)
                 {
-                    float pixelX = (startX + col) * scale;
-                    float pixelY = (startY + row) * scale;
-
-                    Sdl.SDL_FRect pixelRect = new Sdl.SDL_FRect
+                    if ((rowData & (0b1000_0000 >> col)) != 0)
                     {
-                        x = pixelX,
-                        y = pixelY,
-                        w = scale,
-                        h = scale,
-                    };
+                        float pixelX = (startX + col) * scale;
+                        float pixelY = (startY + row) * scale;
 
-                    Sdl.SDL_RenderFillRect(renderer, ref pixelRect);
+                        Sdl.SDL_FRect pixelRect = new Sdl.SDL_FRect
+                        {
+                            x = pixelX,
+                            y = pixelY,
+                            w = scale,
+                            h = scale,
+                        };
+
+                        Sdl.SDL_RenderFillRect(renderer, ref pixelRect);
+                    }
                 }
             }
         }
