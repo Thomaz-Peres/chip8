@@ -32,13 +32,13 @@ public class CPU
     // JMP (jump to location NNN)
     public void OP_1NNN(ushort address)
     {
-        PC = (ushort)(address & 0x0FFF);
+        PC = new OpCode(address).NNN;
     }
 
     // Call subroutine at NNN
     public void OP_2NNN(ushort address)
     {
-        address = (ushort)(address & 0x0FFF);
+        address = new OpCode(address).NNN;
         Stack.Push(PC);
         PC = address;
     }
@@ -47,8 +47,9 @@ public class CPU
     // Skip next instruction if Vx = kk.
     public void OP_3XKK(ushort address)
     {
-        ushort Vx = new OpCode(address).X;
-        if (V[Vx] == (address & 0x00FF))
+        var opCode = new OpCode(address);
+        ushort Vx = opCode.X;
+        if (V[Vx] == opCode.NN)
             PC += 2; // Skip next instruction
     }
 
@@ -56,8 +57,9 @@ public class CPU
     // Skip next instruction if Vx != kk.
     public void OP_4XKK(ushort address)
     {
-        ushort Vx = new OpCode(address).X;
-        if (V[Vx] != (address & 0x00FF))
+        var opCode = new OpCode(address);
+        ushort Vx = opCode.X;
+        if (V[Vx] != opCode.NN)
             PC += 2; // Skip next instruction
     }
 
@@ -162,7 +164,7 @@ public class CPU
     }
 
     // SHR Vx {, Vy}
-    // Set Vx = Vx = Vx SHR 1.
+    // Set Vx = Vx SHR 1.
     public void OP_8XY6(ushort address)
     {
         var opCode = new OpCode(address);
@@ -170,21 +172,118 @@ public class CPU
 
         V[0xF] = (byte)(V[Vx] & 0x1);
 
-        // Right shift
+        // Right shift is perfomed division by 2 (0100 -> 0010)
         V[Vx] >>= 1;
     }
 
     // SUBN Vx, Vy
-    // Set Vx = Vx = Vx SHR 1.
+    // Set Vx = Vx - Vy, set VF = NOT borrow
     public void OP_8XY7(ushort address)
     {
         var opCode = new OpCode(address);
         ushort Vx = opCode.X;
+        ushort Vy = opCode.X;
 
-        V[0xF] = (byte)(V[Vx] & 0x1);
+        if (V[Vy] > V[Vx])
+            V[0xF] = 1;
+        else
+            V[0xF] = 0;
 
-        // Right shift
-        V[Vx] >>= 1;
+        V[Vx] -= V[Vy];
+    }
+
+    // SHL Vx {, Vy}
+    // Set Vx = Vx SHL 1.
+    public void OP_8XYE(ushort address)
+    {
+        var opCode = new OpCode(address);
+        ushort Vx = opCode.X;
+
+        V[0xF] = (byte)((V[Vx] & 0x80) >> 7);
+
+        // Left shift is perfomed multiplication by 2 (0100 -> 1000)
+        V[Vx] <<= 1;
+    }
+
+    // SNE Vx {, Vy}
+    // Skip next instruction if Vx != Vy.
+    public void OP_9XY0(ushort address)
+    {
+        var opCode = new OpCode(address);
+        ushort Vx = opCode.X;
+        ushort Vy = opCode.Y;
+
+        if (V[Vx] != V[Vy])
+            PC += 2;
+    }
+
+    // SET I, addr
+    // Set I = nnn
+    public void OP_ANNN(ushort address) => I = new OpCode(address).NNN;
+
+    // JP V0, addr
+    // Jump to location NNN + V0.
+    public void OP_BNNN(ushort address) => PC = (byte)(new OpCode(address).NNN + V[0]);
+
+    // RND Vx, byte
+    // Set Vx = random byte and kk.
+    public void OP_CXKK(ushort address)
+    {
+        var opCode = new OpCode(address);
+        byte randByte = (byte)new Random().Next(0, 255);
+
+        V[opCode.X] = (byte)(randByte & opCode.NN);
+    }
+
+    // DRW Vx, Vy, nibble
+    // Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
+    public void OP_DXYN(ushort address)
+    {
+        var opCode = new OpCode(address);
+        var Vx = opCode.X;
+        var Vy = opCode.Y;
+        var heigh = opCode.N;
+
+        var xPos = V[Vx] % 64;
+        var yPos = V[Vy] % 32;
+
+        V[0xF] = 0;
+
+        for (var row = 0; row < heigh; row++)
+        {
+            var spriteByte = RAM[I + row];
+
+            for (int col = 0; col < 8; col++)
+            {
+                var spritePixel = spriteByte & (0b1000_0000 >> col);
+                var screenPixel = Video[(xPos + col) * 32, (yPos + row) * 32];
+
+                if (spritePixel != 0)
+                {
+                    if (screenPixel == 0XFFFFFFFF)
+                    {
+                        V[0xF] = 1;
+                    }
+
+                    screenPixel ^= 0xFFFFFFFF;
+                }
+            }
+        }
+    }
+
+
+    // SKP Vx
+    // Skip next instruction if key with the value of Vx is not pressed.
+    public void OP_EX9E(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        byte key = V[Vx];
+
+        if (keypad[key])
+        {
+            PC += 2;
+        }
     }
 
     // Reading somethings, I understand the usually started font is the 0x50, and all roms start at this.
