@@ -6,11 +6,15 @@ public class CPU
     private Stack<ushort> Stack = new Stack<ushort>(16);
     private byte DelayTimer;
     private byte SoundTimer;
-    private readonly byte[] V = new byte[16];
-    private ushort I;
-    private readonly static ushort Start_Address = 0x200;
     private ushort PC;
+    private ushort I;
+
+    private readonly byte[] V = new byte[16]; // Register
+    private readonly static ushort Start_Address = 0x200;
+    private readonly static ushort Start_Font = 0x50;
+
     private static uint[,] Video = new uint [64, 32];
+    private static bool[] Keypad = new bool[0xF];
 
     private readonly IDictionary<ushort, Action> OpCodeHandlers;
 
@@ -27,8 +31,10 @@ public class CPU
         };
     }
 
-    public ushort GetNextInstruction(in ushort PC) => (ushort)(RAM[PC] << 8 | RAM[PC + 1]);
+    public ushort GetNextInstruction(in ushort PC) =>
+        (ushort)(RAM[PC] << 8 | RAM[PC + 1]);
 
+# region intruction/opcodes
     // JMP (jump to location NNN)
     public void OP_1NNN(ushort address)
     {
@@ -273,18 +279,136 @@ public class CPU
 
 
     // SKP Vx
-    // Skip next instruction if key with the value of Vx is not pressed.
+    // Skip next instruction if key with the value of Vx is pressed.
     public void OP_EX9E(ushort address)
     {
         byte Vx = new OpCode(address).X;
 
-        byte key = V[Vx];
-
-        if (keypad[key])
+        if (Keypad[V[Vx]])
         {
             PC += 2;
         }
     }
+
+    // SKPP Vx
+    // Skip next instruction if key with the value of Vx is not pressed.
+    public void OP_EXA1(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        if (!Keypad[V[Vx]])
+        {
+            PC += 2;
+        }
+    }
+
+    // LD Vx, DT
+    // Set Vx = delay timer value
+    public void OP_FX07(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        V[Vx] = DelayTimer;
+    }
+
+    // LD Vx, K
+    // Wait for a key press, store the value of the key in Vx.
+    public void OP_FX0A(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        for (byte i = 0x0; i < 0xF; i++)
+        {
+            if (Keypad[i])
+            {
+                V[Vx] = i;
+                return;
+            }
+        }
+
+        PC -= 2;
+    }
+
+    // LD DT, Vx
+    // Set delay timer = Vx
+    public void OP_FX15(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        DelayTimer = V[Vx];
+    }
+
+    // LD ST, Vx
+    // Set sound timer = Vx
+    public void OP_FX18(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        SoundTimer = V[Vx];
+    }
+
+    // ADD I, Vx
+    // Set I = I + Vx
+    public void OP_FX1E(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        I += V[Vx];
+    }
+
+    // LD F, Vx
+    // Set I = location of sprite for digit Vx.
+    public void OP_FX29(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        // Getting the values in the memory address where the digit begins.
+        I = (ushort)(Start_Font + (Vx * 5));
+    }
+
+    // LD B, Vx
+    // Store BCD representation of Vx in memory locations I, I + 1, and I + 2.
+    public void OP_FX33(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+        var value = V[Vx];
+
+        // Ones-place
+        RAM[I + 2] = (byte)(value % 10);
+        value /= 10;
+
+        // Tens-place
+        RAM[I + 1] = (byte)(value % 10);
+        value /= 10;
+
+        // Hundreds-place
+        RAM[I] = (byte)(value % 10);
+    }
+
+    // LD [I], Vx
+    // Store registers V0 through Vx in memory starting at location I.
+    public void OP_FX55(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        for (int i = 0; i < Vx; i++)
+        {
+            RAM[I + i] = V[i];
+        }
+    }
+
+    // LD Vx, [I]
+    // Read registers V0 through VVx from memory starting at location I.
+    public void OP_FX65(ushort address)
+    {
+        byte Vx = new OpCode(address).X;
+
+        for (int i = 0; i < Vx; i++)
+        {
+            V[i] = RAM[I + i];
+        }
+    }
+# endregion
 
     // Reading somethings, I understand the usually started font is the 0x50, and all roms start at this.
     // but, if create a rom (i will try) can start from 0x00
@@ -292,7 +416,7 @@ public class CPU
     {
         for (int i = 0; i < Fonts.Sprites.Length; i++)
         {
-            RAM[0x50 + i] = Fonts.Sprites[i];
+            RAM[Start_Font + i] = Fonts.Sprites[i];
         }
     }
 

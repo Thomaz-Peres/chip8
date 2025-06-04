@@ -6,6 +6,7 @@ public class SdlManager
 {
     private static IntPtr window;
     private static IntPtr renderer;
+    private static CPU Cpu;
     private static uint[,] Video = new uint[64, 32];
 
     public void Init() => Task.Run(() =>
@@ -32,6 +33,7 @@ public class SdlManager
 
         while (running)
         {
+            // Cpu.LoadROM();
             while (SDL.SDL_PollEvent(out @event))
             {
                 if (@event.type == (uint)SDL.SDL_EventType.SDL_EVENT_QUIT)

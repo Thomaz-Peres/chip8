@@ -20,5 +20,6 @@ public readonly struct OpCode
     // get X (bits 4-7)
     public byte Y => (byte)((Opcode & 0x00F0) >> 4);
 
-    public OpCode(ushort opCode) => Opcode = opCode;
+    public OpCode(ushort opCode) =>
+        Opcode = opCode;
 }
