@@ -1,7 +1,7 @@
 namespace Chip8;
 
 
-public readonly struct OpCode
+public readonly ref struct OpCode
 {
     public ushort Opcode { get; }
 
@@ -17,8 +17,10 @@ public readonly struct OpCode
     // get X (bits 8-11)
     public byte X => (byte)((Opcode & 0x0F00) >> 8);
 
-    // get X (bits 4-7)
+    // get Y (bits 4-7)
     public byte Y => (byte)((Opcode & 0x00F0) >> 4);
+
+    public ushort Nibble => (ushort)(Opcode & 0xF000);
 
     public OpCode(ushort opCode) =>
         Opcode = opCode;

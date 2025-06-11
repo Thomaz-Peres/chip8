@@ -2,7 +2,7 @@ using SDL3;
 
 namespace Chip8;
 
-public class SdlManager
+public sealed class SdlManager
 {
     private static IntPtr window;
     private static IntPtr renderer;

@@ -1,6 +1,6 @@
 namespace Chip8;
 
-public class CPU
+public sealed class CPU
 {
     private byte[] RAM = new byte[4096];
     private Stack<ushort> Stack = new Stack<ushort>(16);
@@ -31,10 +31,105 @@ public class CPU
         };
     }
 
-    public ushort GetNextInstruction(in ushort PC) =>
-        (ushort)(RAM[PC] << 8 | RAM[PC + 1]);
+    public void EmulateCycle()
+    {
+        var opcode = Fetch();
 
-# region intruction/opcodes
+        var param = Decode(opcode);
+
+
+    }
+
+    public ushort GetNextInstruction(in ushort PC) =>
+        (ushort)((RAM[PC] << 8) | RAM[PC + 1]);
+
+    internal ushort Fetch()
+    {
+        var opcode = GetNextInstruction(PC);
+        PC += 2;
+
+        return opcode;
+    }
+
+
+    internal OpCode Decode(ushort opcode) =>
+        new OpCode(opcode);
+
+
+    internal void Execute(OpCode opCode)
+    {
+        var instruction = opCode.Nibble;
+
+        Action x = instruction switch
+        {
+            0x0000 => () => OpCodeHandlers[instruction](),
+            0x1000 => () => OP_1NNN(instruction),
+            0x2000 => () => OP_2NNN(instruction),
+            0x3000 => () => OP_3XNN(instruction),
+            0x4000 => () => OP_4XNN(instruction),
+            0x5000 => () => OP_5XY0(instruction),
+            0x6000 => () => OP_6XNN(instruction),
+            0x7000 => () => OP_7XNN(instruction),
+            0x8000 => () =>
+            {
+                var subCode = (ushort)(instruction & 0x000F);
+                Action y = subCode switch
+                {
+                    0x0 => () => OP_8XY0(instruction),
+                    0x1 => () => OP_8XY1(instruction),
+                    0x2 => () => OP_8XY2(instruction),
+                    0x3 => () => OP_8XY3(instruction),
+                    0x4 => () => OP_8XY4(instruction),
+                    0x5 => () => OP_8XY5(instruction),
+                    0x6 => () => OP_8XY6(instruction),
+                    0x7 => () => OP_8XY7(instruction),
+                    0xE => () => OP_8XYE(instruction),
+                    _ => throw new NotSupportedException()
+                };
+
+                y();
+            },
+            0x9000 => () => OP_9XY0(instruction),
+            0xA000 => () => OP_ANNN(instruction),
+            0xB000 => () => OP_BNNN(instruction),
+            0xC000 => () => OP_CXNN(instruction),
+            0xD000 => () => OP_DXYN(instruction),
+            0xE000 => () =>
+            {
+                var subCode = instruction & 0x00FF;
+                Action action = subCode == 0X9E
+                    ? () => OP_EX9E(instruction)
+                    : () => OP_EXA1(instruction);
+
+                action();
+            },
+            0xF000 => () =>
+            {
+                var subCode = (ushort)(instruction & 0x00FF);
+                Action y = subCode switch
+                {
+                    0X07 => () => OP_FX07(instruction),
+                    0X0A => () => OP_FX0A(instruction),
+                    0X15 => () => OP_FX15(instruction),
+                    0X18 => () => OP_FX18(instruction),
+                    0X1E => () => OP_FX1E(instruction),
+                    0X29 => () => OP_FX29(instruction),
+                    0X33 => () => OP_FX33(instruction),
+                    0X55 => () => OP_FX55(instruction),
+                    0X65 => () => OP_FX65(instruction),
+                    _ => throw new NotSupportedException()
+                };
+
+                y();
+            }
+            ,
+            _ => throw new NotSupportedException(),
+        };
+
+        x();
+    }
+
+#region intruction/opcodes
     // JMP (jump to location NNN)
     public void OP_1NNN(ushort address)
     {
@@ -51,7 +146,7 @@ public class CPU
 
     // SE Vx, byte
     // Skip next instruction if Vx = kk.
-    public void OP_3XKK(ushort address)
+    public void OP_3XNN(ushort address)
     {
         var opCode = new OpCode(address);
         ushort Vx = opCode.X;
@@ -61,7 +156,7 @@ public class CPU
 
     // SNE Vx, byte
     // Skip next instruction if Vx != kk.
-    public void OP_4XKK(ushort address)
+    public void OP_4XNN(ushort address)
     {
         var opCode = new OpCode(address);
         ushort Vx = opCode.X;
@@ -81,7 +176,7 @@ public class CPU
 
     // LD Vx, byte
     // Set Vx = kk.
-    public void OP_6XKK(ushort address)
+    public void OP_6XNN(ushort address)
     {
         ushort Vx = new OpCode(address).X;
         V[Vx] = (byte)(address & 0x00FF);
@@ -89,7 +184,7 @@ public class CPU
 
     // ADD Vx, byte
     // Set Vx = Vx + kk.
-    public void OP_7XKK(ushort address)
+    public void OP_7XNN(ushort address)
     {
         ushort Vx = new OpCode(address).X;
         V[Vx] += (byte)(address & 0x00FF);
@@ -233,7 +328,7 @@ public class CPU
 
     // RND Vx, byte
     // Set Vx = random byte and kk.
-    public void OP_CXKK(ushort address)
+    public void OP_CXNN(ushort address)
     {
         var opCode = new OpCode(address);
         byte randByte = (byte)new Random().Next(0, 255);
