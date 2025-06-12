@@ -37,7 +37,13 @@ public sealed class CPU
 
         var param = Decode(opcode);
 
+        Execute(param);
 
+        if (DelayTimer > 0)
+            DelayTimer--;
+
+        if (SoundTimer > 0)
+            SoundTimer--;
     }
 
     public ushort GetNextInstruction(in ushort PC) =>
