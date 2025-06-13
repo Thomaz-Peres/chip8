@@ -14,7 +14,7 @@ public sealed class CPU
     private readonly static ushort Start_Font = 0x50;
 
     private static uint[,] Video = new uint [64, 32];
-    private static bool[] Keypad = new bool[0xF];
+    public bool[] Keypad = new bool[0xF];
 
     private readonly IDictionary<ushort, Action> OpCodeHandlers;
 
