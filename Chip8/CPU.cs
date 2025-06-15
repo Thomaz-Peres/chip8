@@ -13,22 +13,15 @@ public sealed class CPU
     private readonly static ushort Start_Address = 0x200;
     private readonly static ushort Start_Font = 0x50;
 
-    private static uint[,] Video = new uint [64, 32];
+    private uint[] Video = new uint[64 * 32];
     public bool[] Keypad = new bool[0xF];
 
-    private readonly IDictionary<ushort, Action> OpCodeHandlers;
+    public Span<uint> GetVideoPtr() => Video;
 
     public CPU()
     {
         PC = Start_Address;
         LoadFontSet();
-
-        // This looks good on beginning, problably I will remove it.
-        OpCodeHandlers = new Dictionary<ushort, Action>()
-        {
-            [0x00E0] = () => Array.Clear(Video, 0, Video.Length),
-            [0x00EE] = () => Stack.Pop(),
-        };
     }
 
     public void EmulateCycle()
@@ -49,7 +42,7 @@ public sealed class CPU
     public ushort GetNextInstruction(in ushort PC) =>
         (ushort)((RAM[PC] << 8) | RAM[PC + 1]);
 
-    internal ushort Fetch()
+    private ushort Fetch()
     {
         var opcode = GetNextInstruction(PC);
         PC += 2;
@@ -57,104 +50,125 @@ public sealed class CPU
         return opcode;
     }
 
-
-    internal OpCode Decode(ushort opcode) =>
+    private OpCode Decode(ushort opcode) =>
         new OpCode(opcode);
 
-
-    internal void Execute(OpCode opCode)
+    private void Execute(OpCode opCode)
     {
         var instruction = opCode.Nibble;
 
-        Action x = instruction switch
+        switch (instruction)
         {
-            0x0000 => () => OpCodeHandlers[instruction](),
-            0x1000 => () => OP_1NNN(instruction),
-            0x2000 => () => OP_2NNN(instruction),
-            0x3000 => () => OP_3XNN(instruction),
-            0x4000 => () => OP_4XNN(instruction),
-            0x5000 => () => OP_5XY0(instruction),
-            0x6000 => () => OP_6XNN(instruction),
-            0x7000 => () => OP_7XNN(instruction),
-            0x8000 => () =>
-            {
-                var subCode = (ushort)(instruction & 0x000F);
-                Action y = subCode switch
+            case 0x0000:
                 {
-                    0x0 => () => OP_8XY0(instruction),
-                    0x1 => () => OP_8XY1(instruction),
-                    0x2 => () => OP_8XY2(instruction),
-                    0x3 => () => OP_8XY3(instruction),
-                    0x4 => () => OP_8XY4(instruction),
-                    0x5 => () => OP_8XY5(instruction),
-                    0x6 => () => OP_8XY6(instruction),
-                    0x7 => () => OP_8XY7(instruction),
-                    0xE => () => OP_8XYE(instruction),
-                    _ => throw new NotSupportedException()
-                };
-
-                y();
-            },
-            0x9000 => () => OP_9XY0(instruction),
-            0xA000 => () => OP_ANNN(instruction),
-            0xB000 => () => OP_BNNN(instruction),
-            0xC000 => () => OP_CXNN(instruction),
-            0xD000 => () => OP_DXYN(instruction),
-            0xE000 => () =>
-            {
-                var subCode = instruction & 0x00FF;
-                Action action = subCode == 0X9E
-                    ? () => OP_EX9E(instruction)
-                    : () => OP_EXA1(instruction);
-
-                action();
-            },
-            0xF000 => () =>
-            {
-                var subCode = (ushort)(instruction & 0x00FF);
-                Action y = subCode switch
+                    switch (opCode.N)
+                    {
+                        case 0x0:
+                            Array.Clear(Video, 0, Video.Length);
+                            break;
+                        case 0xE:
+                            Stack.Pop();
+                            break;
+                    }
+                }
+                break;
+            case 0x1000:
+                OP_1NNN(opCode);
+                break;
+            case 0x2000:
+                OP_2NNN(opCode);
+                break;
+            case 0x3000:
+                OP_3XNN(opCode);
+                break;
+            case 0x4000:
+                OP_4XNN(opCode);
+                break;
+            case 0x5000:
+                OP_5XY0(opCode);
+                break;
+            case 0x6000:
+                OP_6XNN(opCode);
+                break;
+            case 0x7000:
+                OP_7XNN(opCode);
+                break;
+            case 0x8000:
                 {
-                    0X07 => () => OP_FX07(instruction),
-                    0X0A => () => OP_FX0A(instruction),
-                    0X15 => () => OP_FX15(instruction),
-                    0X18 => () => OP_FX18(instruction),
-                    0X1E => () => OP_FX1E(instruction),
-                    0X29 => () => OP_FX29(instruction),
-                    0X33 => () => OP_FX33(instruction),
-                    0X55 => () => OP_FX55(instruction),
-                    0X65 => () => OP_FX65(instruction),
-                    _ => throw new NotSupportedException()
+                    switch (opCode.N)
+                    {
+                        case 0x0: OP_8XY0(opCode); break;
+                        case 0x1: OP_8XY1(opCode); break;
+                        case 0x2: OP_8XY2(opCode); break;
+                        case 0x3: OP_8XY3(opCode); break;
+                        case 0x4: OP_8XY4(opCode); break;
+                        case 0x5: OP_8XY5(opCode); break;
+                        case 0x6: OP_8XY6(opCode); break;
+                        case 0x7: OP_8XY7(opCode); break;
+                        case 0xE: OP_8XYE(opCode); break;
+                    }
                 };
-
-                y();
-            }
-            ,
-            _ => throw new NotSupportedException(),
-        };
-
-        x();
+                break;
+            case 0x9000:
+                OP_9XY0(opCode);
+                break;
+            case 0xA000:
+                OP_ANNN(opCode);
+                break;
+            case 0xB000:
+                OP_BNNN(opCode);
+                break;
+            case 0xC000:
+                OP_CXNN(opCode);
+                break;
+            case 0xD000:
+                OP_DXYN(opCode);
+                break;
+            case 0xE000:
+                {
+                    if (opCode.NN == 0x9E)
+                        OP_EX9E(opCode);
+                    else if (opCode.NN == 0xA1)
+                        OP_EXA1(opCode);
+                };
+                break;
+            case 0xF000:
+                {
+                    switch (opCode.NN)
+                    {
+                        case 0x07: OP_FX07(opCode); break;
+                        case 0x0A: OP_FX0A(opCode); break;
+                        case 0x15: OP_FX15(opCode); break;
+                        case 0x18: OP_FX18(opCode); break;
+                        case 0x1E: OP_FX1E(opCode); break;
+                        case 0x29: OP_FX29(opCode); break;
+                        case 0x33: OP_FX33(opCode); break;
+                        case 0x55: OP_FX55(opCode); break;
+                        case 0x65: OP_FX65(opCode); break;
+                    }
+                };
+                break;
+        }
     }
 
-#region intruction/opcodes
+    #region intruction/opcodes
     // JMP (jump to location NNN)
-    public void OP_1NNN(ushort address)
+    public void OP_1NNN(OpCode opCode)
     {
-        PC = new OpCode(address).NNN;
+        PC = opCode.NNN;
     }
 
     // Call subroutine at NNN
-    public void OP_2NNN(ushort address)
+    public void OP_2NNN(OpCode opCode)
     {
-        address = new OpCode(address).NNN;
         Stack.Push(PC);
-        PC = address;
+        PC = opCode.NNN;
     }
 
     // SE Vx, byte
     // Skip next instruction if Vx = kk.
-    public void OP_3XNN(ushort address)
+    public void OP_3XNN(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         if (V[Vx] == opCode.NN)
             PC += 2; // Skip next instruction
@@ -162,9 +176,8 @@ public sealed class CPU
 
     // SNE Vx, byte
     // Skip next instruction if Vx != kk.
-    public void OP_4XNN(ushort address)
+    public void OP_4XNN(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         if (V[Vx] != opCode.NN)
             PC += 2; // Skip next instruction
@@ -172,35 +185,34 @@ public sealed class CPU
 
     // SE Vx, Vy
     // Skip next instruction if Vx = Vy.
-    public void OP_5XY0(ushort address)
+    public void OP_5XY0(OpCode opCode)
     {
-        ushort Vx = new OpCode(address).X;
-        ushort Vy = new OpCode(address).Y;
+        ushort Vx = opCode.X;
+        ushort Vy = opCode.Y;
         if (V[Vx] == V[Vy])
             PC += 2; // Skip next instruction
     }
 
     // LD Vx, byte
     // Set Vx = kk.
-    public void OP_6XNN(ushort address)
+    public void OP_6XNN(OpCode opCode)
     {
-        ushort Vx = new OpCode(address).X;
-        V[Vx] = (byte)(address & 0x00FF);
+        ushort Vx = opCode.X;
+        V[Vx] = opCode.NN;
     }
 
     // ADD Vx, byte
     // Set Vx = Vx + kk.
-    public void OP_7XNN(ushort address)
+    public void OP_7XNN(OpCode opCode)
     {
-        ushort Vx = new OpCode(address).X;
-        V[Vx] += (byte)(address & 0x00FF);
+        ushort Vx = opCode.X;
+        V[Vx] += opCode.NN;
     }
 
     // LD Vx, Vy
     // Set Vx = Vy.
-    public void OP_8XY0(ushort address)
+    public void OP_8XY0(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         ushort Vy = opCode.Y;
         V[Vx] = V[Vy];
@@ -208,9 +220,8 @@ public sealed class CPU
 
     // OR Vx, Vy
     // Set Vx = Vx OR Vy.
-    public void OP_8XY1(ushort address)
+    public void OP_8XY1(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         ushort Vy = opCode.Y;
         V[Vx] |= V[Vy];
@@ -218,9 +229,8 @@ public sealed class CPU
 
     // AND Vx, Vy
     // Set Vx = Vx AND Vy.
-    public void OP_8XY2(ushort address)
+    public void OP_8XY2(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         ushort Vy = opCode.Y;
 
@@ -229,9 +239,8 @@ public sealed class CPU
 
     // XOR Vx, Vy
     // Set Vx = Vx XOR Vy.
-    public void OP_8XY3(ushort address)
+    public void OP_8XY3(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         ushort Vy = opCode.Y;
 
@@ -240,13 +249,12 @@ public sealed class CPU
 
     // ADD Vx, Vy
     // Set Vx = Vx + Vy, set VF = carry.
-    public void OP_8XY4(ushort address)
+    public void OP_8XY4(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         ushort Vy = opCode.Y;
 
-        if ((V[Vx] + V[Vy]) > 0xFF - 1)
+        if ((V[Vx] + V[Vy]) > 0xFF)
             V[0xF] = 1;
         else
             V[0xF] = 0;
@@ -256,9 +264,8 @@ public sealed class CPU
 
     // SUB Vx, Vy
     // Set Vx = Vx - Vy, set VF = NOT borrow.
-    public void OP_8XY5(ushort address)
+    public void OP_8XY5(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         ushort Vy = opCode.Y;
 
@@ -267,14 +274,13 @@ public sealed class CPU
         else
             V[0xF] = 0;
 
-        V[Vx] = (byte)(V[Vx] - V[Vy] & 0xFF);
+        V[Vx] -= V[Vy];
     }
 
     // SHR Vx {, Vy}
     // Set Vx = Vx SHR 1.
-    public void OP_8XY6(ushort address)
+    public void OP_8XY6(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
 
         V[0xF] = (byte)(V[Vx] & 0x1);
@@ -285,9 +291,8 @@ public sealed class CPU
 
     // SUBN Vx, Vy
     // Set Vx = Vx - Vy, set VF = NOT borrow
-    public void OP_8XY7(ushort address)
+    public void OP_8XY7(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         ushort Vy = opCode.X;
 
@@ -296,14 +301,13 @@ public sealed class CPU
         else
             V[0xF] = 0;
 
-        V[Vx] -= V[Vy];
+        V[Vx] = (byte)(V[Vy] - V[Vx]);
     }
 
     // SHL Vx {, Vy}
     // Set Vx = Vx SHL 1.
-    public void OP_8XYE(ushort address)
+    public void OP_8XYE(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
 
         V[0xF] = (byte)((V[Vx] & 0x80) >> 7);
@@ -314,9 +318,8 @@ public sealed class CPU
 
     // SNE Vx {, Vy}
     // Skip next instruction if Vx != Vy.
-    public void OP_9XY0(ushort address)
+    public void OP_9XY0(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         ushort Vx = opCode.X;
         ushort Vy = opCode.Y;
 
@@ -326,17 +329,18 @@ public sealed class CPU
 
     // SET I, addr
     // Set I = nnn
-    public void OP_ANNN(ushort address) => I = new OpCode(address).NNN;
+    public void OP_ANNN(OpCode opCode) =>
+        I = opCode.NNN;
 
     // JP V0, addr
     // Jump to location NNN + V0.
-    public void OP_BNNN(ushort address) => PC = (byte)(new OpCode(address).NNN + V[0]);
+    public void OP_BNNN(OpCode opCode) =>
+        PC = (byte)(opCode.NNN + V[0]);
 
     // RND Vx, byte
     // Set Vx = random byte and kk.
-    public void OP_CXNN(ushort address)
+    public void OP_CXNN(OpCode opCode)
     {
-        var opCode = new OpCode(address);
         byte randByte = (byte)new Random().Next(0, 255);
 
         V[opCode.X] = (byte)(randByte & opCode.NN);
@@ -344,35 +348,46 @@ public sealed class CPU
 
     // DRW Vx, Vy, nibble
     // Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
-    public void OP_DXYN(ushort address)
+    public void OP_DXYN(OpCode opCode)
     {
-        var opCode = new OpCode(address);
-        var Vx = opCode.X;
-        var Vy = opCode.Y;
-        var heigh = opCode.N;
+        var x = opCode.X;
+        var y = opCode.Y;
+        var height = opCode.N;
 
-        var xPos = V[Vx] % 64;
-        var yPos = V[Vy] % 32;
+        var xPos = V[x] % 64;
+        var yPos = V[y] % 32;
 
         V[0xF] = 0;
 
-        for (var row = 0; row < heigh; row++)
+        for (var row = 0; row < height; row++)
         {
             var spriteByte = RAM[I + row];
 
             for (int col = 0; col < 8; col++)
             {
-                var spritePixel = spriteByte & (0b1000_0000 >> col);
-                var screenPixel = Video[(xPos + col) * 32, (yPos + row) * 32];
+                // var spritePixel = spriteByte & (0x80 >> col);
+                // var screenPixel = Video[(yPos + row) * 64 + (xPos + col)];
 
-                if (spritePixel != 0)
+                // if (spritePixel != 0)
+                // {
+                //     if (screenPixel == 0xFFFFFFFF)
+                //     {
+                //         V[0xF] = 1;
+                //     }
+
+                //     screenPixel ^= 0xFFFFFFFF;
+                // }
+
+                byte pixel = (byte)((spriteByte >> (7 - col)) & 1);
+                var index = Video[((y + row) % 32) * 64 + ((x + col) % 64)];
+
+                if (pixel == 1)
                 {
-                    if (screenPixel == 0XFFFFFFFF)
+                    if (Video[index] == 0xFFFFFFFF) // White pixel
                     {
-                        V[0xF] = 1;
+                        V[0xF] = 1; // Set collision flag
                     }
-
-                    screenPixel ^= 0xFFFFFFFF;
+                    Video[index] ^= 0xFFFFFFFF; // XOR the pixel
                 }
             }
         }
@@ -381,9 +396,9 @@ public sealed class CPU
 
     // SKP Vx
     // Skip next instruction if key with the value of Vx is pressed.
-    public void OP_EX9E(ushort address)
+    public void OP_EX9E(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
         if (Keypad[V[Vx]])
         {
@@ -393,9 +408,9 @@ public sealed class CPU
 
     // SKPP Vx
     // Skip next instruction if key with the value of Vx is not pressed.
-    public void OP_EXA1(ushort address)
+    public void OP_EXA1(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
         if (!Keypad[V[Vx]])
         {
@@ -405,18 +420,18 @@ public sealed class CPU
 
     // LD Vx, DT
     // Set Vx = delay timer value
-    public void OP_FX07(ushort address)
+    public void OP_FX07(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
         V[Vx] = DelayTimer;
     }
 
     // LD Vx, K
     // Wait for a key press, store the value of the key in Vx.
-    public void OP_FX0A(ushort address)
+    public void OP_FX0A(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
         for (byte i = 0x0; i < 0xF; i++)
         {
@@ -432,36 +447,36 @@ public sealed class CPU
 
     // LD DT, Vx
     // Set delay timer = Vx
-    public void OP_FX15(ushort address)
+    public void OP_FX15(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
         DelayTimer = V[Vx];
     }
 
     // LD ST, Vx
     // Set sound timer = Vx
-    public void OP_FX18(ushort address)
+    public void OP_FX18(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
         SoundTimer = V[Vx];
     }
 
     // ADD I, Vx
     // Set I = I + Vx
-    public void OP_FX1E(ushort address)
+    public void OP_FX1E(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
         I += V[Vx];
     }
 
     // LD F, Vx
     // Set I = location of sprite for digit Vx.
-    public void OP_FX29(ushort address)
+    public void OP_FX29(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
         // Getting the values in the memory address where the digit begins.
         I = (ushort)(Start_Font + (Vx * 5));
@@ -469,9 +484,9 @@ public sealed class CPU
 
     // LD B, Vx
     // Store BCD representation of Vx in memory locations I, I + 1, and I + 2.
-    public void OP_FX33(ushort address)
+    public void OP_FX33(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
         var value = V[Vx];
 
         // Ones-place
@@ -488,11 +503,11 @@ public sealed class CPU
 
     // LD [I], Vx
     // Store registers V0 through Vx in memory starting at location I.
-    public void OP_FX55(ushort address)
+    public void OP_FX55(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
-        for (int i = 0; i < Vx; i++)
+        for (int i = 0; i <= Vx; i++)
         {
             RAM[I + i] = V[i];
         }
@@ -500,11 +515,11 @@ public sealed class CPU
 
     // LD Vx, [I]
     // Read registers V0 through VVx from memory starting at location I.
-    public void OP_FX65(ushort address)
+    public void OP_FX65(OpCode opCode)
     {
-        byte Vx = new OpCode(address).X;
+        byte Vx = opCode.X;
 
-        for (int i = 0; i < Vx; i++)
+        for (int i = 0; i <= Vx; i++)
         {
             V[i] = RAM[I + i];
         }

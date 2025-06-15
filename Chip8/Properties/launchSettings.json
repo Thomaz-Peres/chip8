@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Chip8": {
+      "commandName": "Project",
+      "commandLineArgs": ".\\test_opcode.ch8 1"
+    }
+  }
+}

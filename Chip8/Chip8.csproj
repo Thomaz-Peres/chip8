@@ -12,6 +12,12 @@
 	  <None Update="SDL3.dll">
 		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
+	  <None Update="test_opcode.ch8">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Tetris.ch8">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
 	  <ProjectReference Include="..\..\vendored\SDL3-CS\SDL3\SDL3.Core.csproj" />
   </ItemGroup>
 
