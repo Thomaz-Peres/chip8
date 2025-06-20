@@ -1,7 +1,7 @@
 :alias x0 v8
 :alias x1 v9
 :alias x2 vA
-:alias y	vB
+:alias y  vB
 : imageok
 	0xEA 0xAC 0xAA 0xEA
 : imagefalse

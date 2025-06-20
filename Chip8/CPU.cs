@@ -6,20 +6,20 @@ public sealed class CPU
     private Stack<ushort> Stack = new Stack<ushort>(16);
     private byte DelayTimer;
     private byte SoundTimer;
-    private ushort PC;
-    private ushort I;
+    private ushort PC = 0;
+    private ushort I = 0;
 
     private readonly byte[] V = new byte[16]; // Register
     private readonly static ushort Start_Address = 0x200;
     private readonly static ushort Start_Font = 0x50;
 
-    private uint[] Video = new uint[64 * 32];
-    public bool[] Keypad = new bool[0xF];
-
-    public Span<uint> GetVideoPtr() => Video;
+    public uint[] Video = new uint[64 * 32];
+    public bool[] Keypad = new bool[16];
+    private Random generator = new Random(Environment.TickCount);
 
     public CPU()
     {
+        RAM = new byte[4096];
         PC = Start_Address;
         LoadFontSet();
     }
@@ -67,7 +67,7 @@ public sealed class CPU
                             Array.Clear(Video, 0, Video.Length);
                             break;
                         case 0xE:
-                            Stack.Pop();
+                            PC = Stack.Pop();
                             break;
                     }
                 }
@@ -197,55 +197,35 @@ public sealed class CPU
     // Set Vx = kk.
     public void OP_6XNN(OpCode opCode)
     {
-        ushort Vx = opCode.X;
-        V[Vx] = opCode.NN;
+        V[opCode.X] = opCode.NN;
     }
 
     // ADD Vx, byte
     // Set Vx = Vx + kk.
     public void OP_7XNN(OpCode opCode)
     {
-        ushort Vx = opCode.X;
-        V[Vx] += opCode.NN;
+        V[opCode.X] += opCode.NN;
     }
 
     // LD Vx, Vy
     // Set Vx = Vy.
-    public void OP_8XY0(OpCode opCode)
-    {
-        ushort Vx = opCode.X;
-        ushort Vy = opCode.Y;
-        V[Vx] = V[Vy];
-    }
+    public void OP_8XY0(OpCode opCode) =>
+        V[opCode.X] = V[opCode.Y];
 
     // OR Vx, Vy
     // Set Vx = Vx OR Vy.
-    public void OP_8XY1(OpCode opCode)
-    {
-        ushort Vx = opCode.X;
-        ushort Vy = opCode.Y;
-        V[Vx] |= V[Vy];
-    }
+    public void OP_8XY1(OpCode opCode) =>
+        V[opCode.X] |= V[opCode.Y];
 
     // AND Vx, Vy
     // Set Vx = Vx AND Vy.
-    public void OP_8XY2(OpCode opCode)
-    {
-        ushort Vx = opCode.X;
-        ushort Vy = opCode.Y;
-
-        V[Vx] &= V[Vy];
-    }
+    public void OP_8XY2(OpCode opCode) =>
+        V[opCode.X] &= V[opCode.Y];
 
     // XOR Vx, Vy
     // Set Vx = Vx XOR Vy.
-    public void OP_8XY3(OpCode opCode)
-    {
-        ushort Vx = opCode.X;
-        ushort Vy = opCode.Y;
-
-        V[Vx] ^= V[Vy];
-    }
+    public void OP_8XY3(OpCode opCode) =>
+        V[opCode.X] ^= V[opCode.Y];
 
     // ADD Vx, Vy
     // Set Vx = Vx + Vy, set VF = carry.
@@ -254,12 +234,9 @@ public sealed class CPU
         ushort Vx = opCode.X;
         ushort Vy = opCode.Y;
 
-        if ((V[Vx] + V[Vy]) > 0xFF)
-            V[0xF] = 1;
-        else
-            V[0xF] = 0;
+        V[0xF] = (byte)(V[Vx] + V[Vy] > 0xFF ? 1 : 0);
 
-        V[Vx] = (byte)(V[Vx] + V[Vy] & 0xFF);
+        V[Vx] = (byte)(V[Vx] + V[Vy] & 0x00FF);
     }
 
     // SUB Vx, Vy
@@ -269,12 +246,9 @@ public sealed class CPU
         ushort Vx = opCode.X;
         ushort Vy = opCode.Y;
 
-        if (V[Vx] > V[Vy])
-            V[0xF] = 1;
-        else
-            V[0xF] = 0;
+        V[0xF] = (byte)(V[Vx] > V[Vy] ? 1 : 0);
 
-        V[Vx] -= V[Vy];
+        V[Vx] = (byte)((V[Vx] - V[Vy]) & 0xFF);
     }
 
     // SHR Vx {, Vy}
@@ -286,7 +260,7 @@ public sealed class CPU
         V[0xF] = (byte)(V[Vx] & 0x1);
 
         // Right shift is perfomed division by 2 (0100 -> 0010)
-        V[Vx] >>= 1;
+        V[Vx] = (byte)(V[Vx] >> 1);
     }
 
     // SUBN Vx, Vy
@@ -313,7 +287,7 @@ public sealed class CPU
         V[0xF] = (byte)((V[Vx] & 0x80) >> 7);
 
         // Left shift is perfomed multiplication by 2 (0100 -> 1000)
-        V[Vx] <<= 1;
+        V[Vx] = (byte)(V[Vx] <<1);
     }
 
     // SNE Vx {, Vy}
@@ -341,9 +315,7 @@ public sealed class CPU
     // Set Vx = random byte and kk.
     public void OP_CXNN(OpCode opCode)
     {
-        byte randByte = (byte)new Random().Next(0, 255);
-
-        V[opCode.X] = (byte)(randByte & opCode.NN);
+        V[opCode.X] = (byte)(generator.Next() & opCode.NN);
     }
 
     // DRW Vx, Vy, nibble
@@ -354,10 +326,7 @@ public sealed class CPU
         var y = opCode.Y;
         var height = opCode.N;
 
-        var xPos = V[x] % 64;
-        var yPos = V[y] % 32;
-
-        V[0xF] = 0;
+        V[0xF] = 0; // Reset collision flag
 
         for (var row = 0; row < height; row++)
         {
@@ -365,34 +334,20 @@ public sealed class CPU
 
             for (int col = 0; col < 8; col++)
             {
-                // var spritePixel = spriteByte & (0x80 >> col);
-                // var screenPixel = Video[(yPos + row) * 64 + (xPos + col)];
-
-                // if (spritePixel != 0)
-                // {
-                //     if (screenPixel == 0xFFFFFFFF)
-                //     {
-                //         V[0xF] = 1;
-                //     }
-
-                //     screenPixel ^= 0xFFFFFFFF;
-                // }
-
-                byte pixel = (byte)((spriteByte >> (7 - col)) & 1);
-                var index = Video[((y + row) % 32) * 64 + ((x + col) % 64)];
-
-                if (pixel == 1)
+                if ((spriteByte & (0x80 >> col)) != 0)
                 {
-                    if (Video[index] == 0xFFFFFFFF) // White pixel
+                    var pixelXY = V[x] + col + (V[y] + row) * 64;
+
+                    if (Video[pixelXY] == 0xFFFFFFFF)
                     {
-                        V[0xF] = 1; // Set collision flag
+                        V[0xF] = 1;
                     }
-                    Video[index] ^= 0xFFFFFFFF; // XOR the pixel
+
+                    Video[pixelXY] ^= 0xFFFFFFFF;
                 }
             }
         }
     }
-
 
     // SKP Vx
     // Skip next instruction if key with the value of Vx is pressed.
@@ -507,7 +462,7 @@ public sealed class CPU
     {
         byte Vx = opCode.X;
 
-        for (int i = 0; i <= Vx; i++)
+        for (int i = 0; i < Vx; i++)
         {
             RAM[I + i] = V[i];
         }
@@ -519,7 +474,7 @@ public sealed class CPU
     {
         byte Vx = opCode.X;
 
-        for (int i = 0; i <= Vx; i++)
+        for (int i = 0; i < Vx; i++)
         {
             V[i] = RAM[I + i];
         }

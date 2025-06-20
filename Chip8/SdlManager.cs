@@ -39,33 +39,39 @@ public sealed class SdlManager
         SDL.SDL_Quit();
     }
 
-    public unsafe void Update(void* buffer, int pitch)
+    public void Update(uint[] Video)
     {
-        nint pixels;
-        var rect = new SDL_Rect()
-        {
-            h = 32,
-            w = 64,
-            x = 0,
-            y = 0,
-        };
-
-        var srcRect = new SDL.SDL_FRect { x = 0, y = 0, w = 64, h = 32 };
-        var dstRect = new SDL.SDL_FRect { x = 0, y = 0, w = 64, h = 32 }; // scale if needed
-
-        SDL_LockTexture(Texture, ref rect, out pixels, out int textPitch);
-        SDL_UnlockTexture(Texture);
+        int scale = 10;
+        SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
         SDL_RenderClear(Renderer);
-        SDL_RenderTexture(Renderer, Texture, ref srcRect, ref dstRect);
+        SDL_SetRenderDrawColor(Renderer, 255, 255, 255, 255);
+
+        for (int y = 0; y < 32; y++)
+        {
+            for (int x = 0; x < 64; x++)
+            {
+                int index = y * 64 + x;
+                if (Video[index] == 0xFFFFFFFF)
+                {
+                    SDL_FRect rect = new SDL_FRect
+                    {
+                        x = x * scale,
+                        y = y * scale,
+                        w = scale,
+                        h = scale
+                    };
+                    SDL_RenderFillRect(Renderer, ref rect);
+                }
+            }
+        }
         SDL_RenderPresent(Renderer);
     }
 
     public bool ProcessInput(bool[] Keypad)
     {
         bool running = false;
-        SDL.SDL_Event @event;
 
-        while (SDL.SDL_PollEvent(out @event))
+        while (SDL.SDL_PollEvent(out var @event))
         {
             switch (@event.type)
             {
